@@ -1,0 +1,165 @@
+*gogentest.txt*    Generate Go test templates with LSP support
+
+Author:  YuminosukeSato
+License: MIT License
+
+INTRODUCTION                                    *gogentest*
+
+gogentest is a Neovim plugin that generates Go test templates using LSP
+(gopls) to extract function signatures with full type information.
+
+CONTENTS                                        *gogentest-contents*
+
+1. Features.................|gogentest-features|
+2. Requirements.............|gogentest-requirements|
+3. Installation.............|gogentest-installation|
+4. Usage....................|gogentest-usage|
+5. Commands.................|gogentest-commands|
+6. Configuration............|gogentest-configuration|
+7. Troubleshooting..........|gogentest-troubleshooting|
+
+==============================================================================
+FEATURES                                        *gogentest-features*
+
+- Automatically generates test templates for Go functions
+- Uses LSP (gopls) to extract function signatures with full type information
+- Falls back to Treesitter or minimal template when gopls is unavailable
+- Generates Goland-compatible test templates with:
+  - Proper args struct with typed fields
+  - Table-driven test structure
+  - Error handling with assert.ErrorAssertionFunc
+  - Appropriate want fields based on return types
+
+==============================================================================
+REQUIREMENTS                                    *gogentest-requirements*
+
+- Neovim 0.8+ (for LSP support)
+- gopls (Go language server) - usually installed with Go development environment
+- Optional: nvim-treesitter with Go parser for fallback support
+
+==============================================================================
+INSTALLATION                                    *gogentest-installation*
+
+Using lazy.nvim: >lua
+  {
+    "YuminosukeSato/gogentest",
+    ft = "go",
+    dependencies = { "neovim/nvim-lspconfig" },
+    keys = {
+      { "<leader>tG", function() require("gogentest").generate() end,
+        desc = "Generate Go Test" },
+    },
+  }
+<
+
+Using packer.nvim: >lua
+  use {
+    "YuminosukeSato/gogentest",
+    ft = "go",
+    requires = { "neovim/nvim-lspconfig" },
+  }
+<
+
+==============================================================================
+USAGE                                           *gogentest-usage*
+
+1. Place your cursor on a Go function you want to test
+2. Run |:GogentestGenerate| or use your configured keybinding (e.g., <leader>tG)
+3. The plugin will:
+   - Create a *_test.go file if it doesn't exist
+   - Generate a test template with proper types extracted from gopls
+   - Open the test file with the generated template
+
+Example:
+
+Given this Go function: >go
+  func ProcessData(ctx context.Context, id int, data string) (string, error) {
+      // implementation
+  }
+<
+
+The plugin generates: >go
+  package mypackage_test
+
+  import (
+      "context"
+      "fmt"
+      "testing"
+
+      "github.com/stretchr/testify/assert"
+  )
+
+  func TestProcessData(t *testing.T) {
+      type args struct {
+          ctx  context.Context
+          id   int
+          data string
+      }
+      tests := []struct {
+          name    string
+          args    args
+          want    string
+          wantErr assert.ErrorAssertionFunc
+      }{
+          // TODO add cases
+      }
+      for _, tt := range tests {
+          t.Run(tt.name, func(t *testing.T) {
+              got, err := ProcessData(tt.args.ctx, tt.args.id, tt.args.data)
+              if !tt.wantErr(t, err, fmt.Sprintf("ProcessData(%v, %v, %v)",
+                  tt.args.ctx, tt.args.id, tt.args.data)) {
+                  return
+              }
+              assert.Equalf(t, tt.want, got, "ProcessData(%v, %v, %v)",
+                  tt.args.ctx, tt.args.id, tt.args.data)
+          })
+      }
+  }
+<
+
+==============================================================================
+COMMANDS                                        *gogentest-commands*
+
+                                                *:GogentestGenerate*
+:GogentestGenerate
+    Generate a test template for the Go function at the cursor position.
+    This command will:
+    - Extract function signature using gopls
+    - Create or append to a *_test.go file
+    - Generate a table-driven test template
+    - Open the test file
+
+==============================================================================
+CONFIGURATION                                   *gogentest-configuration*
+
+You can add custom keymappings in your Neovim configuration: >lua
+
+  vim.api.nvim_create_autocmd("FileType", {
+    pattern = "go",
+    callback = function()
+      vim.keymap.set("n", "<leader>gt", function()
+        require("gogentest").generate()
+      end, { buffer = true, desc = "Generate Go test" })
+    end,
+  })
+<
+
+==============================================================================
+TROUBLESHOOTING                                 *gogentest-troubleshooting*
+
+"gopls unavailable" message~
+    Ensure gopls is installed and running for your Go files. You can install
+    it with: >
+      go install golang.org/x/tools/gopls@latest
+<
+
+"function not detected"~
+    Make sure your cursor is on or inside a Go function declaration. The
+    plugin looks for function signatures at the cursor position.
+
+Type information missing~
+    Check that gopls is properly configured and the file has no syntax
+    errors. The plugin relies on gopls for accurate type information.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
